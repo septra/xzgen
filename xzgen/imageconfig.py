@@ -4,6 +4,7 @@ from functools import partial
 import logging
 import numpy as np
 import cv2 as cv
+import csv
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +108,6 @@ class ImageData:
         if img is None:
             raise Exception('No image found.')
         return img
-
 
 class Dimension:
     def __init__(self, info_file_path):
