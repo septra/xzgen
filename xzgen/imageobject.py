@@ -1,4 +1,5 @@
 import numpy as np
+import cv2
 import cv2 as cv
 from imgaug import augmenters as iaa
 from imgaug import parameters as iap
@@ -20,7 +21,7 @@ class ImageObject(np.ndarray):
         self.info = getattr(obj, 'info', None)
 
     @staticmethod
-    def from_path(path):
+    def frompath(path):
         """ Read in the provided path and construct the ImageObject.
         """
         img = cv.imread(path)
@@ -50,12 +51,11 @@ class ImageObject(np.ndarray):
         image_aug = aug_det.augment_image(self.src)
         return ImageObject(image_aug)
 
-    @staticmethod
     def find_mask(self):
-        src = self.src.copy()
+        src = self.copy()
         lab1 = cv2.cvtColor(src,cv2.COLOR_BGR2GRAY)
         _, temp_thresh = cv2.threshold(lab1, 1, 255, cv2.THRESH_BINARY)
-        h, w = src1.shape[:2]
+        h, w = src.shape[:2]
         if cv2.countNonZero(temp_thresh)>h*w*0.5 :
             temp_thresh=cv2.bitwise_not(temp_thresh)
         kernel = np.ones((9,9),np.uint8)
