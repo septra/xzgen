@@ -69,6 +69,9 @@ class Scene:
         self.factor1 = 0.0
         self.factor2 = 0.0
 
+        self.build_factors()
+        self.get_shelf_height()
+
     def find_factors_parallel(self, position):
         src = self.obj_list[position[0] * self.col_shelf + position[1]][0]
         boundRect, mask = self.find_mask(src)
