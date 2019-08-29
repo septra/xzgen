@@ -17,11 +17,17 @@ class ImageData:
         path_pos,
         path_neg,
         path_nosku,
+        path_occ,
+        path_bg,
         sku_list,
         root_dir):
         self.path_pos = Path(path_pos)
         self.path_neg = Path(path_neg)
         self.path_nosku = Path(path_nosku)
+        self.path_occ = Path(path_occ)
+        self.dir_occ = os.listdir(self.path_occ)
+        self.path_bg = Path(path_bg)
+        self.dirs_bg = os.listdir(self.path_bg)
         self.sku_list = sku_list
         self.root_dir = root_dir
 
