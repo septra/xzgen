@@ -1,19 +1,29 @@
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
+import time
+import os
+import glob
 import logging
 import numpy as np
-import cv2 as cv
+import cv2
 import csv
 
 logger = logging.getLogger(__name__)
 
 class ImageData:
-    def __init__(self, path_pos, path_neg, path_nosku, sku_list):
+    def __init__(
+        self,
+        path_pos,
+        path_neg,
+        path_nosku,
+        sku_list,
+        root_dir):
         self.path_pos = Path(path_pos)
         self.path_neg = Path(path_neg)
         self.path_nosku = Path(path_nosku)
         self.sku_list = sku_list
+        self.root_dir = root_dir
 
         self.neg_paths = self.get_image_paths(str(self.path_neg))
         self.pos_paths= self.get_image_paths(str(self.path_pos))
@@ -49,10 +59,10 @@ class ImageData:
             logger.error('Something went wrong while reading null skus.')
             logger.error(e)
 
-        self.folder_name = Path.cwd().joinpath(
+        self.folder_name = self.root_dir.joinpath(
             'dataset',
             'multiSizeRelativeSkuC_' + time.strftime("%Y%m%d-%H%M%S"))
-        self.folder_name.mkdir()
+        self.folder_name.mkdir(parents=True, exist_ok=True)
         self.folder_name.joinpath('train').mkdir()
 
         logging.info(f'Writing classes.csv to {self.folder_name}')
