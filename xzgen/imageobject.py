@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import cv2 as cv
+import random
 from imgaug import augmenters as iaa
 from imgaug import parameters as iap
 from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
@@ -48,7 +49,7 @@ class ImageObject(np.ndarray):
             random_order=True
         )
         aug_det = seq.to_deterministic()
-        image_aug = aug_det.augment_image(self.src)
+        image_aug = aug_det.augment_image(self)
         return ImageObject(image_aug)
 
     def find_mask(self):
