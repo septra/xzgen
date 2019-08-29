@@ -7,6 +7,8 @@ SKU_INFO_PATH = TEST_PATH.joinpath('hs_sku_info.csv')
 PATH_POS = TEST_PATH.joinpath('test_pos')
 PATH_NEG = TEST_PATH.joinpath('NEG_SKU')
 PATH_NOSKU = TEST_PATH.joinpath('NEG_BG')
+PATH_OCC = TEST_PATH.joinpath('OCC_DIR')
+PATH_BG = TEST_PATH.joinpath('Background')
 
 def test_pass():
     assert True
@@ -26,6 +28,8 @@ def test_ImageData():
         path_pos = str(PATH_POS),
         path_neg = str(PATH_NEG),
         path_nosku = str(PATH_NOSKU),
+        path_occ = str(PATH_OCC),
+        path_bg = str(PATH_BG),
         sku_list = dimension.sku_list,
         root_dir = TEST_PATH)
     assert TEST_PATH.joinpath('dataset').is_dir()
