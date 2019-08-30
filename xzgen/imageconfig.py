@@ -9,6 +9,8 @@ import numpy as np
 import cv2
 import csv
 
+from .imageobject import ImageObject
+
 logger = logging.getLogger(__name__)
 
 class ImageData:
@@ -97,7 +99,7 @@ class ImageData:
                 img = cv2.resize(img,(720, 1280),interpolation=cv2.INTER_CUBIC)
             except Exception as e:
                 logger.error(e)
-        return img
+        return ImageObject(img)
 
     @staticmethod
     def read_positive_image(sku_list, path):
@@ -110,7 +112,7 @@ class ImageData:
             try:
                 img = cv2.resize(img,(720, 1280),interpolation=cv2.INTER_CUBIC)
                 img_sname_list = {}
-                img_sname_list['img'] = img
+                img_sname_list['img'] = ImageObject(img)
                 img_sname_list['class'] = Path(path).parent.name
                 img_sname_list['index'] = sku_list[img_sname_list['class']]
             except Exception as e:
@@ -123,7 +125,7 @@ class ImageData:
         img = cv2.imread(path)
         if img is None:
             raise Exception('No image found.')
-        return img
+        return ImageObject(img)
 
 class Dimension:
     def __init__(self, info_file_path):
