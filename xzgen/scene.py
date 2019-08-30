@@ -3,7 +3,7 @@ from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
 import random
-import cv2 as cv
+import cv2
 from imgaug import augmenters as iaa
 from imgaug import parameters as iap
 from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
@@ -19,7 +19,8 @@ class Scene:
 
         self.upper_limit = upper_limit
         self.dimension = dimension
-        self.save_path = str(folder_name.joinpath(
+        self.image_data = image_data
+        self.save_path = str(self.image_data.folder_name.joinpath(
             'train',
             f'multiOvlp{shelf_count}.jpg'))
         self.place_prob = place_prob
@@ -30,10 +31,12 @@ class Scene:
         self.row_shelf = self.upper_limit % self.col_shelf
 
         self.total_obj = self.row_shelf * self.col_shelf
+        print('total_obj: ', self.total_obj)
         if self.total_obj > 4 :
             self.pos_obj = int(self.total_obj*random.uniform(0.5, 0.7))
         else:
             self.pos_obj = 1
+        print('pos_obj: ', self.pos_obj)
         self.neg_obj = self.total_obj - self.pos_obj
 
         self.obj_list = []
@@ -47,16 +50,18 @@ class Scene:
         bg_width = self.dimension.bg_width
 
         self.bg1 = self.get_resized_image(
-            path_bg + dirs_bg[random.randint(0, len(dirs_bg)-1)],
+            str(image_data.path_bg.joinpath(image_data.dirs_bg[
+                random.randint(0, len(image_data.dirs_bg)-1)])),
             bg_height,
             bg_width)
 
         self.bg2 = self.get_resized_image(
-            path_bg + dirs_bg[random.randint(0, len(dirs_bg)-1)],
+            str(image_data.path_bg.joinpath(image_data.dirs_bg[
+                random.randint(0, len(image_data.dirs_bg)-1)])),
             bg_height,
             bg_width)
 
-        self.build_obj_lists()
+        self.build_obj_lists(self.dimension, self.image_data)
 
         self.current_col = 0
         self.current_row = 0
@@ -81,18 +86,25 @@ class Scene:
         self.get_shelf_height()
 
     def find_factors_parallel(self, position):
+        print('called')
+        print('length obj_list:', len(self.obj_list))
+        print('position[0]: ', position[0])
+        print('position[1]: ', position[1])
+        print('self.col_shelf: ', self.col_shelf)
         src = self.obj_list[position[0] * self.col_shelf + position[1]][0]
-        boundRect, mask = self.find_mask(src)
+        boundRect, mask = src.find_mask()
 
         height = boundRect[3]
         width = boundRect[2]
 
-        factor1 = (obj_height-self.shelf_gaps[position[0]])/boundRect[3]
-        factor2 = obj_width/boundRect[2]
+        factor1 = (self.obj_height-self.shelf_gaps[position[0]])/boundRect[3]
+        factor2 = self.obj_width/boundRect[2]
         rf = min(factor1, factor2)
 
         shr = self.dimension.sku_height_ratio[
             self.obj_list[position[0] * self.col_shelf + position[1]][1]]
+
+        print('ended')
 
         return {
             'height': height, 
@@ -104,16 +116,31 @@ class Scene:
 
     def build_factors(self):
         self.shelf_gaps = [
-            random.randint(int(0.035*bg_width), int(0.12*bg_width))
+            random.randint(
+                int(0.035*self.dimension.bg_width),
+                int(0.120*self.dimension.bg_width))
             for _ in range(0, self.row_shelf)]
 
+        print('self.row_shelf: ', self.row_shelf)
+        print('self.col_shelf: ', self.col_shelf)
         positions = [(i, j)
             for i in range(0, self.row_shelf)
             for j in range(0, self.col_shelf)]
 
-        with ProcessPoolExecutor() as executor:
-            results = list(
-                excecutor.map(self.find_factors_parallel, positions))
+        print('positions: ', positions)
+
+        print(len(positions))
+
+        # with ProcessPoolExecutor() as executor:
+        #     results = list(
+        #         executor.map(self.find_factors_parallel, positions))
+        # with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
+        # with multiprocessing.Pool(1) as pool:
+        #     results = pool.map(self.find_factors_parallel, positions)
+
+        results = []
+        for position in positions:
+            results.append(self.find_factors_parallel(position))
 
         for result in results:
             if ((result['height'] > self.max_height) and
@@ -146,33 +173,39 @@ class Scene:
 
     def build_obj_lists(self, dimension: Dimension, image_data: ImageData):
         for i in range(0, self.pos_obj):
-            idx = random.randint(0,len(pos_files_list)-1)
+            idx = random.randint(0,len(image_data.pos_files_list)-1)
 
             self.obj_list.append([
-                image_data.pos_files_list[idx]['class'],
+                image_data.pos_files_list[idx]['img'],
                 image_data.pos_files_list[idx]['index']])
 
             self.pos_obj_list.append(image_data.pos_files_list[idx])
 
             sku_height_ratio = (
-                dimension.
-                sku_height_ratio[image_data.pos_files_list[idx][2]])
+                dimension.sku_height_ratio[image_data.pos_files_list[idx]['index']])
 
             if (sku_height_ratio > self.max_real_sku_height_ratio):
                 self.max_real_sku_height_ratio = sku_height_ratio
+
+        # Extends the object list for negative images.
+        self.augment_negatives(image_data)
+
+    @staticmethod
+    def augment_neg_image_(img):
+        return img.augment_negative()
 
     def augment_negatives(self, image_data):
         """Parallely augment negative images."""
         random_neg_ixs = [
             random.randint(0, len(image_data.neg_files_list) - 1)
-            for i in range(0, neg_obj)]
+            for i in range(0, self.neg_obj)]
 
         neg_images_to_augment = [
             image_data.neg_files_list[ix] for ix in random_neg_ixs]
 
         with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
             neg_aug_images = pool.map(
-                augment_neg_image,
+                self.augment_neg_image_,
                 neg_images_to_augment)
 
         self.neg_aug_images = [[image, -1] for image in neg_aug_images]
