@@ -31,26 +31,59 @@ class ImageObject(np.ndarray):
         return ImageObject(img)
 
     def augment_obj(self):
-        """ The new method capturing the functionality of augment_image_obj'
+        """ The new method capturing the functionality of augment_shelf_obj'
         """
-        sometimes = lambda aug: iaa.Sometimes(0.3, aug)
+        sometimes = lambda aug: iaa.Sometimes(0.5, aug)
 
         seq = iaa.Sequential(
         [
-            sometimes( iaa.SaltAndPepper(0.2) ),
-            sometimes( iaa.SigmoidContrast(cutoff=0.25, gain=5)),
-            sometimes( iaa.SigmoidContrast(cutoff=0.4, gain=5)),
-            sometimes( iaa.EdgeDetect(alpha=0.1)),       
-            sometimes( iaa.GammaContrast((0.7,1.4))),
+            sometimes( iaa.SaltAndPepper(0.1) ),
+            sometimes( iaa.EdgeDetect(alpha=0.1)),
+            sometimes( iaa.GammaContrast((1.2, 1.6))),
             sometimes( iaa.GaussianBlur((0.5,1.25))),
-            sometimes( iaa.AverageBlur(k=3)),
-            sometimes( iaa.MedianBlur(k=3)),
-        ],
+            sometimes( iaa.AverageBlur(k=9)),
+            sometimes( iaa.MedianBlur(k=7)),
+            sometimes( iaa.OneOf([
+                iaa.MotionBlur(k=10, angle=45),
+                iaa.MotionBlur(k=10, angle=90),
+                iaa.MotionBlur(k=10, angle=135),
+                iaa.MotionBlur(k=10, angle=180),
+                iaa.MotionBlur(k=10, angle=225),
+                iaa.MotionBlur(k=10, angle=270),
+                iaa.MotionBlur(k=10, angle=315),
+                iaa.MotionBlur(k=10, angle=360)])),
+            ],
             random_order=True
         )
         aug_det = seq.to_deterministic()
-        image_aug = aug_det.augment_image(self)
+        image_aug = aug_det.augment_image(self.copy())
+
         return ImageObject(image_aug)
+
+    def augment_negative(self):
+        bgr = self.copy()
+        bbox, mask = bgr.find_mask()
+        im_out = np.zeros_like(bgr)
+
+        sometimes = lambda aug: iaa.Sometimes(0.5, aug)
+
+        seq = iaa.Sequential(
+            [
+            iaa.AddToHueAndSaturation((-60, -45), per_channel=True),
+            sometimes( iaa.SigmoidContrast(gain=(0, 5), cutoff=(0.0, 1.0), per_channel=True)),
+            iaa.SomeOf((0, None),[
+            iaa.AddToHueAndSaturation((25, 45), per_channel=True),
+            iaa.LinearContrast(alpha=(0.5, 1.5), per_channel=True),
+            iaa.SigmoidContrast(gain=(5, 10), cutoff=(0.0, 1.0), per_channel=True),
+            iaa.LogContrast(gain=0.7, per_channel=True)
+            ])
+            ]
+        )
+
+        aug_det = seq.to_deterministic()
+        image_aug = aug_det.augment_images(bgr)
+        im_out[mask == 255] = image_aug[mask == 255]
+        return ImageObject(im_out)
 
     def find_mask(self):
         src = self.copy()
@@ -103,11 +136,11 @@ class ImageObject(np.ndarray):
             [ iaa.AddToHueAndSaturation((-45, 45), per_channel=True),])
 
         aug_det = seq.to_deterministic()
-        image_aug = ImageObject(aug_det.augment_image(sku_image))
+        image_aug = ImageObject(aug_det.augment_image(sku_img))
 
-        im_out[mask_occ == 255] = image_aug[0][mask_occ == 255]
+        im_out[mask_occ == 255] = image_aug[mask_occ == 255]
         occ_img = ImageObject(im_out)
-        boundRect, mask = sku_image.find_mask()
+        boundRect, mask = sku_img.find_mask()
         boundRect2, mask2 = occ_img.find_mask()
         fx = boundRect[2]*0.3/boundRect2[2] #Choose occlusion size
         fy = boundRect[3]*0.3/boundRect2[3] #Choose occlusion size
