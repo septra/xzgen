@@ -9,7 +9,7 @@ from pathlib import Path
 logging.basicConfig(level = logging.INFO)
 logger = logging.getLogger(__name__)
 
-if __name__ == '__main__':
+def main():
     description = "Data generation for DL models."
 
     parser = argparse.ArgumentParser(description = description)
@@ -113,4 +113,8 @@ if __name__ == '__main__':
     with open( annotation_file_path, 'w') as csvFile:
         writer = csv.writer(csvFile)
         writer.writerows(csvData)
+
+
+if __name__ == '__main__':
+    main()
 
