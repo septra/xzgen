@@ -37,10 +37,6 @@ def test_ImageData():
         .joinpath(image_data.folder_name)
         .joinpath('classes.csv')
         .exists())
-    assert (TEST_PATH
-        .joinpath(image_data.folder_name)
-        .joinpath('train_annotations.csv')
-        .exists())
     assert len(image_data.neg_files_list) > 0
     assert len(image_data.pos_files_list) > 0
     assert len(image_data.sku_neg_list) > 0
