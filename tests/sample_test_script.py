@@ -13,6 +13,7 @@ PATH_OCC = TEST_PATH_CONFIG.joinpath('OCC_DIR')
 PATH_BG = TEST_PATH_CONFIG.joinpath('Background')
 
 dimension = Dimension(str(SKU_INFO_PATH))
+print('Initialised dimension')
 image_data = ImageData(
     path_pos = str(PATH_POS),
     path_neg = str(PATH_NEG),
@@ -21,7 +22,8 @@ image_data = ImageData(
     path_bg = str(PATH_BG),
     sku_list = dimension.sku_list,
     root_dir = TEST_PATH_CONFIG)
+print('Initialised image_data')
 
 scene = Scene(dimension, image_data, 7, 0.8, upper_limit=45)
 
-shutil.rmtree(TEST_PATH_CONFIG.joinpath('dataset'))
+# shutil.rmtree(TEST_PATH_CONFIG.joinpath('dataset'))

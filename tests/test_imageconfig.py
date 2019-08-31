@@ -44,5 +44,3 @@ def test_ImageData():
     assert len(image_data.neg_files_list) > 0
     assert len(image_data.pos_files_list) > 0
     assert len(image_data.sku_neg_list) > 0
-
-    shutil.rmtree(TEST_PATH.joinpath('dataset'))

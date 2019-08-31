@@ -25,5 +25,3 @@ image_data = ImageData(
 def test_scene():
     scene = Scene(dimension, image_data, 7, 0.8, upper_limit=45)
     assert True
-
-shutil.rmtree(TEST_PATH_CONFIG.joinpath('dataset'))
