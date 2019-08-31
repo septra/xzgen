@@ -107,11 +107,7 @@ class Scene:
     def find_factors_parallel(self, position):
         logger.debug('Calling find_factors_parallel.')
 
-        print('called')
-        print('position[0]: ', position[0])
-        print('position[1]: ', position[1])
         src = self.obj_list[position[0] * self.col_shelf + position[1]][0]
-        # print(src)
         logger.debug(f'Object has shape {src.shape}')
         boundRect, mask = src.find_mask()
 
@@ -124,8 +120,6 @@ class Scene:
 
         shr = self.dimension.sku_height_ratio[
             self.obj_list[position[0] * self.col_shelf + position[1]][1]]
-
-        print('ended')
 
         return {
             'height': height, 
@@ -436,11 +430,29 @@ class Scene:
                 temp.append(self.sku_label[j])
                 self.csvDataTrain.append(temp)
 
-    def write_scene(self):
-        # aug_img, bbs1_aug, sku_label = self.augmentation(
-        #     self.bg1,
-        #     self.bblist)
-        cv2.imwrite(self.save_path, self.final_scene[0])
+    def write_scene(self, debug=False):
+        if debug:
+            img = self.final_scene[0].copy()
+            for row in self.csvDataTrain:
+                # row = row.split(',')
+                cv2.rectangle(
+                    img,
+                    (row[1], row[2]),
+                    (row[3], row[4]),
+                    (255,0,0),
+                    5)
+                cv2.putText(
+                    img,
+                    str(row[5]),
+                    (row[1], row[2]),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    2.0,
+                    (0, 0, 255),
+                    10,
+                    lineType=cv2.LINE_AA)
+            cv2.imwrite(self.save_path, img)
+        else:
+            cv2.imwrite(self.save_path, self.final_scene[0])
 
     def write_annotations(self):
         with open(
@@ -454,25 +466,25 @@ class Scene:
         img = self.bg1.copy()
         for row in self.csvDataTrain:
             row = row.split(',')
-            cv.rectangle(img, (row[1], row[2]), (row[3], row[4]), (255,0,0), 5)
-            cv.putText(
+            cv2.rectangle(img, (row[1], row[2]), (row[3], row[4]), (255,0,0), 5)
+            cv2.putText(
                 img,
                 str(row[5]),
                 (row[1], row[2]),
-                cv.FONT_HERSHEY_SIMPLEX,
+                cv2.FONT_HERSHEY_SIMPLEX,
                 2.0,
                 (0, 0, 255),
                 10,
                 lineType=cv.LINE_AA)
 
-        cv.imshow('scene', img)
-        cv.waitKey(0)
-        cv.destroyAllWindows()
+        cv2.imshow('scene', img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
     def augmentation(self, img, rect):
         """ Global Augmentation function.
         """
-        logging.info('Calling augmentation.')
+        logger.debug('Calling augmentation.')
 
         bb_list1 = []
         bb = []

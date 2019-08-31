@@ -1,15 +1,22 @@
 import argparse
+import multiprocessing
 from xzgen import ImageObject
 from xzgen import ImageData, Dimension
 from xzgen import Scene
 import logging
-import csv
 from pathlib import Path
+import time
 
 logging.basicConfig(level = logging.INFO)
 logger = logging.getLogger(__name__)
 
-def main():
+def construct_scene(scene_ix):
+    scene = Scene(dimension, image_data, scene_ix, 0.8, upper_limit=45)
+    scene.write_scene(DEBUG_FLAG)
+    annots = scene.csvDataTrain.copy()
+    return annots
+
+if __name__ == '__main__':
     description = "Data generation for DL models."
 
     parser = argparse.ArgumentParser(description = description)
@@ -108,6 +115,9 @@ def main():
         root_dir = Path.cwd())
 
     csvData = []
+
+    time0 = time.time()
+
     for scene_ix in range(num_images):
         logger.info(f'Constructing scene {scene_ix}.')
         scene = Scene(dimension, image_data, scene_ix, 0.8, upper_limit=45)
@@ -115,15 +125,21 @@ def main():
         csvData.append(annots)
         scene.write_scene(DEBUG_FLAG)
 
+    # with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
+    #     csvData = pool.map(construct_scene, range(num_images))
+
+    time1 = time.time()
+
+    print(f'Application took {time1 - time0} secs to run...')
+
+
+    csvData = [row for scene in csvData for row in scene]
+
     annotation_file_path = image_data.folder_name.joinpath(
             'train_annotations.csv')
 
     logger.info(f'Writing annotations file at {annotation_file_path}.')
-    with open( annotation_file_path, 'w') as csvFile:
-        writer = csv.writer(csvFile)
-        writer.writerows(csvData)
-
-
-if __name__ == '__main__':
-    main()
+    with open(annotation_file_path, 'w') as csvFile:
+        for row in csvData:
+            csvFile.write(",".join(str(r) for r in row) + "\n")
 
