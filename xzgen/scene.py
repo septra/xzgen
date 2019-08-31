@@ -104,9 +104,6 @@ class Scene:
         self.get_shelf_height()
         self.build_scene()
 
-        self.write_scene()
-        self.write_annotations()
-
     def find_factors_parallel(self, position):
         logger.debug('Calling find_factors_parallel.')
 
@@ -452,7 +449,6 @@ class Scene:
             logger.info('Writing the train_annotations to ' + str(self.image_data.folder_name))
             writer = csv.writer(csvFile)
             writer.writerows(self.csvDataTrain)
-        self.csvDataTrain.clear()
 
     def show_scene(self, debug=True):
         img = self.bg1.copy()
