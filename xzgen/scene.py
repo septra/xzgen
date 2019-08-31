@@ -1,28 +1,37 @@
 from .imageconfig import Dimension, ImageData
+from .imageobject import ImageObject
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
 import random
 import cv2
+import csv
+import logging
+import imgaug as ia
 from imgaug import augmenters as iaa
 from imgaug import parameters as iap
 from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
+
+logger = logging.getLogger(__name__)
 
 class Scene:
     def __init__(
         self,
         dimension,
         image_data,
-        shelf_count,
+        scene_idx,
         place_prob,
         upper_limit=45):
+        logger.debug('Initialising Scene.')
 
         self.upper_limit = upper_limit
         self.dimension = dimension
         self.image_data = image_data
         self.save_path = str(self.image_data.folder_name.joinpath(
             'train',
-            f'multiOvlp{shelf_count}.jpg'))
+            f'multiOvlp{scene_idx}.jpg'))
+
+        logger.debug(f'Save path for scene: {self.save_path}')
         self.place_prob = place_prob
 
         self.col_shelf = random.randint(2,8)
@@ -30,14 +39,23 @@ class Scene:
             self.col_shelf += 1
         self.row_shelf = self.upper_limit % self.col_shelf
 
+        logger.debug(f'self.row_shelf:  {self.row_shelf}')
+        logger.debug(f'self.col_shelf:  {self.col_shelf}')
+
         self.total_obj = self.row_shelf * self.col_shelf
-        print('total_obj: ', self.total_obj)
+        logger.debug(f'total_obj: {self.total_obj}')
+
         if self.total_obj > 4 :
             self.pos_obj = int(self.total_obj*random.uniform(0.5, 0.7))
         else:
             self.pos_obj = 1
-        print('pos_obj: ', self.pos_obj)
+
         self.neg_obj = self.total_obj - self.pos_obj
+
+        logger.debug(
+            f'Total objects = {self.total_obj},' 
+            f'Positive objects: {self.pos_obj},'
+            f'Negative objects: {self.neg_obj}')
 
         self.obj_list = []
         self.pos_obj_list = []
@@ -71,7 +89,7 @@ class Scene:
         self.resize_ratio = []
         self.obj_ratio = self.obj_width/self.obj_height
 
-        self.shelf_gap = []
+        self.shelf_gaps = []
         self.cum_shelf_height = 0
         self.rf = 0.0
         self.rf2 = 0
@@ -84,14 +102,20 @@ class Scene:
 
         self.build_factors()
         self.get_shelf_height()
+        self.build_scene()
+
+        self.write_scene()
+        self.write_annotations()
 
     def find_factors_parallel(self, position):
+        logger.debug('Calling find_factors_parallel.')
+
         print('called')
-        print('length obj_list:', len(self.obj_list))
         print('position[0]: ', position[0])
         print('position[1]: ', position[1])
-        print('self.col_shelf: ', self.col_shelf)
         src = self.obj_list[position[0] * self.col_shelf + position[1]][0]
+        # print(src)
+        logger.debug(f'Object has shape {src.shape}')
         boundRect, mask = src.find_mask()
 
         height = boundRect[3]
@@ -115,22 +139,21 @@ class Scene:
             'shr': shr}
 
     def build_factors(self):
+        logger.debug('Called build_factors.')
         self.shelf_gaps = [
             random.randint(
                 int(0.035*self.dimension.bg_width),
                 int(0.120*self.dimension.bg_width))
             for _ in range(0, self.row_shelf)]
 
-        print('self.row_shelf: ', self.row_shelf)
-        print('self.col_shelf: ', self.col_shelf)
         positions = [(i, j)
             for i in range(0, self.row_shelf)
             for j in range(0, self.col_shelf)]
 
-        print('positions: ', positions)
+        logger.debug(f'positions: {positions}')
+        logger.debug(f'total positions: {len(positions)}')
 
-        print(len(positions))
-
+        # Parallelisation
         # with ProcessPoolExecutor() as executor:
         #     results = list(
         #         executor.map(self.find_factors_parallel, positions))
@@ -139,7 +162,8 @@ class Scene:
         #     results = pool.map(self.find_factors_parallel, positions)
 
         results = []
-        for position in positions:
+        for ix, position in enumerate(positions):
+            logger.debug(f'Finding factors for ix: {ix} and position {position}.')
             results.append(self.find_factors_parallel(position))
 
         for result in results:
@@ -151,13 +175,13 @@ class Scene:
                 self.factor = result['factor1']
                 self.factor1 = result['factor1']
                 self.factor2 = result['factor2']
-                self.rf = result[rf]
+                self.rf = result['rf']
 
     def get_shelf_height(self):
-        for i in range(0, row_shelf):
+        for i in range(0, self.row_shelf):
             sh_height = round(self.max_height * self.factor)
-            self.cum_shelf_height += sh_height + self.shelf_gap[i]
-            if self.cum_shelf_height < self.bg_height:
+            self.cum_shelf_height += sh_height + self.shelf_gaps[i]
+            if self.cum_shelf_height < self.dimension.bg_height:
                 self.shelf_height.append(round(self.max_height * self.factor)-5) 
             else:
                 self.shelf_height.append(0)
@@ -172,6 +196,7 @@ class Scene:
         return image
 
     def build_obj_lists(self, dimension: Dimension, image_data: ImageData):
+        logger.debug('Building up object lists.')
         for i in range(0, self.pos_obj):
             idx = random.randint(0,len(image_data.pos_files_list)-1)
 
@@ -192,24 +217,35 @@ class Scene:
 
     @staticmethod
     def augment_neg_image_(img):
-        return img.augment_negative()
+        logger.debug(f'augment_neg_image_ - input_shape: {img.shape}')
+        aug_img = img.augment_negative()
+        logger.debug(f'augment_neg_image_ - shape: {aug_img.shape}')
+        return aug_img
 
     def augment_negatives(self, image_data):
         """Parallely augment negative images."""
+        logger.debug('Calling augment_negatives.')
+
         random_neg_ixs = [
             random.randint(0, len(image_data.neg_files_list) - 1)
             for i in range(0, self.neg_obj)]
 
         neg_images_to_augment = [
             image_data.neg_files_list[ix] for ix in random_neg_ixs]
+        
+        # Parallelisation
+        # with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
+        #     logger.debug('Calling multiprocessing executor for augmenting negative images.')
+        #     neg_aug_images = pool.map(
+        #         self.augment_neg_image_,
+        #         neg_images_to_augment)
 
-        with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
-            neg_aug_images = pool.map(
-                self.augment_neg_image_,
-                neg_images_to_augment)
+        neg_aug_images = []
+        for image in neg_images_to_augment:
+            neg_aug_images.append(self.augment_neg_image_(image))
 
         self.neg_aug_images = [[image, -1] for image in neg_aug_images]
-        self.obj_list.extend(neg_aug_images)
+        self.obj_list.extend(self.neg_aug_images)
 
     def get_resized_single_object(self, occlusion=True):
         """ Picks a random object from the object list and adds occlusion to
@@ -221,29 +257,29 @@ class Scene:
         boundRect, mask = src.find_mask()
 
         if single_obj[1] >= 0:
-            rf2 = ((max_height / boundRect[3]) * 
-            (sku_height_ratio[single_obj[1]] / self.max_real_sku_height_ratio))
+            rf2 = ((self.max_height / boundRect[3]) * 
+            (self.dimension.sku_height_ratio[single_obj[1]] / self.max_real_sku_height_ratio))
         else:
             rf2 = (
-                (max_height / boundRect[3]) * 
+                (self.max_height / boundRect[3]) * 
                 (random.uniform(0.4, self.max_real_sku_height_ratio) / 
                 self.max_real_sku_height_ratio))
 
-        src_ = cv2.resize(
+        src_ = ImageObject(cv2.resize(
             src,
             None,
             fx=self.rf*rf2,
             fy=self.rf*rf2,
-            interpolation=cv2.INTER_CUBIC)
+            interpolation=cv2.INTER_CUBIC))
 
         if occlusion:
-            dir_occ = self.dimension.dir_occ
-            path_occ = self.dimension.path_occ
+            dir_occ = self.image_data.dir_occ
+            path_occ = self.image_data.path_occ
             num_occ = random.randint(0, len(dir_occ) - 1)
             occ_img = cv2.imread(
                 str(Path(path_occ).joinpath(dir_occ[num_occ])))
             src_ = src_.add_occlusion(occ_img)
-            aug_src_ = src_.augment_shelf_obj()
+            aug_src_ = src_.augment_obj()
 
         boundReact_, mask_ = aug_src_.find_mask()
         index = single_obj[1]
@@ -255,31 +291,42 @@ class Scene:
         The dummy parameter is just to pass this function to the parallel
         process.
         """
-        x = int(self.bg_width * 0.05) # Current placed sku row length
+        x = int(self.dimension.bg_width * 0.05) # Current placed sku row length
 
         src_rect_masks = []
         while True:
             (src, index), boundRect, mask = self.get_resized_single_object()
+            if boundRect is None:
+                continue
             if (x + boundRect[2]) > self.bg1.shape[1]*0.95:
                 break
             else:
-                src_rect_masks.append(((src, index), boundRect, mask))
+                src_rect_masks.append([(src, index), boundRect, mask])
                 x += boundRect[2]
         return src_rect_masks
 
     def build_rows(self):
         row_ixs = range(0, self.row_shelf)
-        with ProcessPoolExecutor() as executor:
-            row_objects = list(executor.map(self.get_objects_for_row, row_ixs))
-        return row_objects
+
+        # Parallelisation
+        # with ProcessPoolExecutor() as executor:
+        #     row_objects = list(executor.map(self.get_objects_for_row, row_ixs))
+
+        rows = []
+        for row_ix in row_ixs:
+            rows.append(self.get_objects_for_row(row_ix))
+
+        return rows
 
     def build_scene(self):
         # The self.build_rows() function will do the heavy lifting computations
         # parallely
         rows = self.build_rows()
 
+        logger.debug(f'Total {len(rows)} rows built.')
+
         current_row = 0
-        y1 = int(self.bg_height * 0.05)
+        y1 = int(self.dimension.bg_height * 0.05)
         while True:
             inter_res = y1 + int(self.shelf_height[current_row])
 
@@ -287,84 +334,144 @@ class Scene:
                 # SKU crossing height
                 break
 
-            if shelf_height[current_row] == 0:
+            if self.shelf_height[current_row] == 0:
                 logging.info('shelf_height[current_row] = 0')
                 break
 
+
+            # for row_objects in rows[current_row]:
+            x1 = int(self.dimension.bg_width * 0.05) # Current placed sku row length
+            # for (aug_img, obj_index), boundRect, mask in row_objects:
+            for (aug_img, obj_index), boundRect, mask in rows[current_row]:
+                a1, b1 = (boundRect[0], boundRect[1])
+
+                a2, b2 = (
+                    boundRect[0] + boundRect[2], 
+                    boundRect[1] + boundRect[3])
+
+                crop1 = self.bg1[
+                    inter_res - boundRect[3] : inter_res,
+                    x1 : x1 + boundRect[2]]
+
+                crop2 = aug_img[b1:b2, a1:a2]
+
+                if crop1.shape != crop2.shape:
+                    #logging.info('crop mismatch')
+                    continue
+
+                crop_mask = mask[b1:b2, a1:a2]
+                h1, w1 = crop1.shape[:2]
+                h2, w2 = crop2.shape[:2]
+
+                skip_num = random.randint(0, 10)
+                if skip_num <= self.place_prob*10:
+                    crop1[crop_mask == 255] = crop2[crop_mask == 255]
+
+                if x1+boundRect[2]+boundRect[2] < self.bg1.shape[1]*0.95:
+                    if random.randint(0,333) % 3 == 0:
+                        overlap_pixels = -int(0.012*self.dimension.bg_width)
+                    else:
+                        overlap_pixels = random.randint(
+                            0,
+                            int(boundRect[2]*0.27)) ##overlap percent is the last value
+                else:
+                    overlap_pixels = 0
+
+                if (obj_index >= 0) and (skip_num <= self.place_prob*10):
+                    annots = []
+                    v1 = x1
+                    annots.append(v1)
+                    v2 = y1+int(self.shelf_height[current_row])-boundRect[3]
+                    annots.append(v2)
+                    if overlap_pixels>0:
+                        v3 = x1+boundRect[2]
+                        annots.append(v3)
+                    else:
+                        v3 = x1+boundRect[2]
+                        annots.append(v3)
+                    v4 = y1+int(self.shelf_height[current_row])
+                    annots.append(v4)
+                    sku_list_ = {v:k for k,v in self.dimension.sku_list.items()}
+                    annots.append(sku_list_[obj_index])
+                    self.bblist.append(annots)
+
+                if x1+boundRect[2] < self.bg1.shape[1]*0.95:
+                    x1 += int(boundRect[2])-overlap_pixels
+
             line_thick = random.randint(
-                int(0.018*bg_width),
-                int(0.034*bg_width))
+                int(0.018*self.dimension.bg_width),
+                int(0.034*self.dimension.bg_width))
 
             y1 += int(self.shelf_height[current_row])
 
             line_img = self.bg2[
                 y1 : y1 + line_thick,
-                int(self.bg_width*0.04):int(self.bg_width*0.96)]
+                int(self.dimension.bg_width*0.04):int(self.dimension.bg_width*0.96)]
 
             if random.randint(0,50)%4==0:
                 self.bg1[
                     y1 : y1 + line_thick,
-                    int(self.bg_width*0.04) : int(self.bg_width*0.96)] = line_img
+                    int(self.dimension.bg_width*0.04) : int(self.dimension.bg_width*0.96)] = line_img
 
-            y1 += self.shelf_gap[current_row]
+            y1 += self.shelf_gaps[current_row]
 
-            for row_objects in rows[current_row]:
-                x1 = int(self.bg_width * 0.05) # Current placed sku row length
-                for (aug_img, obj_index), boundRect, mask in row_objects:
-                    a1, b1 = (boundRect1[0], boundRect1[1])
+        self.final_scene, self.bbs1_aug, self.sku_label = self.augmentation(
+                self.bg1,
+                self.bblist)
+        self.csvDataTrain = []
+        for i in range(0, len(self.bbs1_aug)):
+            for j in range(0, len(self.bbs1_aug[i].bounding_boxes)):
+                after = self.bbs1_aug[i].bounding_boxes[j]
+                if int(after.x1) < 0:
+                  after.x1 = 0
+                if int(after.y1) < 0:
+                  after.y1 = 0
+                if int(after.x2) > self.bg1.shape[1]:
+                  after.x2 = self.bg1.shape[1]-2
+                if int(after.y2) > self.bg1.shape[0]:
+                  after.y2 = self.bg1.shape[0]-2
+                temp = []
+                temp.append(self.save_path)
+                temp.append(int(after.x1))
+                temp.append(int(after.y1))
+                temp.append(int(after.x2))
+                temp.append(int(after.y2))
+                temp.append(self.sku_label[j])
+                self.csvDataTrain.append(temp)
 
-                    a2, b2 = (
-                        boundRect[0] + boundRect[2], 
-                        boundRect[1] + boundRect[3])
+    def write_scene(self):
+        # aug_img, bbs1_aug, sku_label = self.augmentation(
+        #     self.bg1,
+        #     self.bblist)
+        cv2.imwrite(self.save_path, self.final_scene[0])
 
-                    crop1 = self.bg1[
-                        inter_res - boundRect[3] : inter_res,
-                        x1 : x1 + boundRect[2]]
+    def write_annotations(self):
+        with open(
+            self.image_data.folder_name.joinpath('train_annotations.csv'),
+            'a') as csvFile:
+            logger.info('Writing the train_annotations to ' + str(self.image_data.folder_name))
+            writer = csv.writer(csvFile)
+            writer.writerows(self.csvDataTrain)
+        self.csvDataTrain.clear()
 
-                    crop2 = aug_img[b1:b2, a1:a2]
+    def show_scene(self, debug=True):
+        img = self.bg1.copy()
+        for row in self.csvDataTrain:
+            row = row.split(',')
+            cv.rectangle(img, (row[1], row[2]), (row[3], row[4]), (255,0,0), 5)
+            cv.putText(
+                img,
+                str(row[5]),
+                (row[1], row[2]),
+                cv.FONT_HERSHEY_SIMPLEX,
+                2.0,
+                (0, 0, 255),
+                10,
+                lineType=cv.LINE_AA)
 
-                    if crop1.shape != crop2.shape:
-                        #logging.info('crop mismatch')
-                        continue
-
-                    crop_mask = mask[b1:b2, a1:a2]
-                    h1, w1 = crop1.shape[:2]
-                    h2, w2 = crop2.shape[:2]
-
-                    skip_num = random.randint(0, 10)
-                    if skip_num <= self.place_prob*10:
-                        crop1[crop_mask == 255] = crop2[crop_mask == 255]
-
-                    if x1+boundRect[2]+boundRect[2] < self.bg1.shape[1]*0.95:
-                        if random.randint(0,333) % 3 == 0:
-                            overlap_pixels = -int(0.012*self.bg_width)
-                        else:
-                            overlap_pixels = random.randint(
-                                0,
-                                int(boundRect[2]*0.27)) ##overlap percent is the last value
-                    else:
-                        overlap_pixels = 0
-
-                    if (obj_index >= 0) and (skip_num <= self.place_prob*10):
-                        annots = []
-                        v1 = x1
-                        annots.append(v1)
-                        v2 = y1+int(self.shelf_height[current_row])-boundRect[3]
-                        annots.append(v2)
-                        if overlap_pixels>0:
-                            v3 = x1+boundRect[2]
-                            annots.append(v3)
-                        else:
-                            v3 = x1+boundRect[2]
-                            annots.append(v3)
-                        v4 = y1+int(self.shelf_height[current_row])
-                        annots.append(v4)
-                        annots.append(self.dimension.sku_list[obj_index])
-                        self.bblist.append(annots)
-
-                    if x1+boundRect[2] < bg.shape[1]*0.95:
-                        x1 += int(boundRect[2])-overlap_pixels
-
+        cv.imshow('scene', img)
+        cv.waitKey(0)
+        cv.destroyAllWindows()
 
     def augmentation(self, img, rect):
         """ Global Augmentation function.
