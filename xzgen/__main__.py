@@ -77,6 +77,14 @@ def main():
             help = "The number of images to be generated."
             )
 
+    parser.add_argument(
+            "--debug",
+            dest = 'debug',
+            default = False,
+            action = 'store_true',
+            help = "If true, write images with annotated bounding boxes."
+            )
+
     args = parser.parse_args()
 
     info_file = args.info
@@ -86,6 +94,7 @@ def main():
     path_occ = args.occdir
     path_bg = args.background
     num_images = args.num_images
+    DEBUG_FLAG = args.debug
     # anno_option = args.type
 
     dimension = Dimension(info_file)
@@ -104,7 +113,7 @@ def main():
         scene = Scene(dimension, image_data, scene_ix, 0.8, upper_limit=45)
         annots = scene.csvDataTrain.copy()
         csvData.append(annots)
-        scene.write_scene()
+        scene.write_scene(DEBUG_FLAG)
 
     annotation_file_path = image_data.folder_name.joinpath(
             'train_annotations.csv')
