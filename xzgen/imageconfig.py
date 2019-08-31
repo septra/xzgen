@@ -84,8 +84,6 @@ class ImageData:
             text = "\n".join([f"{lab},{ix}" for lab, ix in sku_list.items()])
             csvFile.write(text)
 
-        self.folder_name.joinpath('train_annotations.csv').touch()
-
     def get_image_paths(self, dir):
         paths = [f
             for path, dirs, files in os.walk(dir)
