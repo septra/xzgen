@@ -23,6 +23,7 @@ class ImageData:
         path_bg,
         sku_list,
         root_dir):
+        logger.info('Initialising ImageData class.')
         self.path_pos = Path(path_pos)
         self.path_neg = Path(path_neg)
         self.path_nosku = Path(path_nosku)
@@ -38,31 +39,34 @@ class ImageData:
         self.nosku_paths = self.get_image_paths(str(self.path_nosku))
 
         try:
-            logger.info('Building up list of negative files.')
+            logger.debug('Building up list of negative files.')
             with ProcessPoolExecutor() as executor:
                 self.neg_files_list = list(executor.map(
                     self.read_negative_image,
                     self.neg_paths))
+            logger.debug(f'Total {len(self.neg_files_list)} neg_files_list images.')
         except Exception as e:
             logger.error('Something went wrong while reading neg_files')
             logger.error(e)
 
         try:
-            logger.info('Building up list of positive files.')
+            logger.debug('Building up list of positive files.')
             with ProcessPoolExecutor() as executor:
                 self.pos_files_list = list(executor.map(
                     partial(self.read_positive_image, self.sku_list),
                     self.pos_paths))
+            logger.debug(f'Total {len(self.pos_files_list)} pos_files_list images.')
         except Exception as e:
             logger.error('Something went wrong while reading pos files.')
             logger.error(e)
 
         try:
-            logger.info('Building up list of sku negative files.')
+            logger.debug('Building up list of sku negative files.')
             with ProcessPoolExecutor() as executor:
                 self.sku_neg_list = list(executor.map(
                     self.read_skuneg_image,
                     self.nosku_paths))
+            logger.debug(f'Total {len(self.sku_neg_list)} sku_neg_list images.')
         except Exception as e:
             logger.error('Something went wrong while reading null skus.')
             logger.error(e)
@@ -70,10 +74,12 @@ class ImageData:
         self.folder_name = self.root_dir.joinpath(
             'dataset',
             'multiSizeRelativeSkuC_' + time.strftime("%Y%m%d-%H%M%S"))
+
         self.folder_name.mkdir(parents=True, exist_ok=True)
+        logger.debug(f'Created folder {self.folder_name}')
         self.folder_name.joinpath('train').mkdir()
 
-        logging.info(f'Writing classes.csv to {self.folder_name}')
+        logger.info(f'Writing classes.csv to {self.folder_name}')
         with open(self.folder_name.joinpath('classes.csv'), 'w') as csvFile:
             text = "\n".join([f"{lab},{ix}" for lab, ix in sku_list.items()])
             csvFile.write(text)
@@ -129,6 +135,7 @@ class ImageData:
 
 class Dimension:
     def __init__(self, info_file_path):
+        logger.info('Creating Dimension object.')
         self.info_file_path = info_file_path
         self.valid_sku = []
         self.sku_width_ratio = []
@@ -154,6 +161,7 @@ class Dimension:
         self.bg_width = 2448
 
     def process_file(self):
+        logger.debug(f'Processing dimension file {self.info_file_path}.')
         with open(self.info_file_path) as csv_file:
             logger.info('Reading CSV file for aspect ratio')
             csv_reader = csv.reader(csv_file, delimiter=',')

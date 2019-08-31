@@ -2,9 +2,12 @@ import numpy as np
 import cv2
 import cv2 as cv
 import random
+import logging
 from imgaug import augmenters as iaa
 from imgaug import parameters as iap
 from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
+
+logger = logging.getLogger(__name__)
 
 class ImageObject(np.ndarray):
     """ Generic Image Object class to hold positives, negatives and occlusions.
@@ -12,6 +15,7 @@ class ImageObject(np.ndarray):
     Inherits from: np.ndarray. 
     Refer - https://docs.scipy.org/doc/numpy-1.13.0/user/basics.subclassing.html
     """
+    logger.info('Initialising ImageObject')
     def __new__(cls, input_array, info=None):
         obj = np.asarray(input_array).view(cls)
         obj.info = info
@@ -25,6 +29,7 @@ class ImageObject(np.ndarray):
     def frompath(path):
         """ Read in the provided path and construct the ImageObject.
         """
+        logger.debug(f'Initialising ImageObject from path {path}')
         img = cv.imread(path)
         if img is None:
             raise IOError(f'Image {path} not loaded.')
@@ -33,6 +38,7 @@ class ImageObject(np.ndarray):
     def augment_obj(self):
         """ The new method capturing the functionality of augment_shelf_obj'
         """
+        logger.debug('augment_ob called on ImageObject')
         sometimes = lambda aug: iaa.Sometimes(0.5, aug)
 
         seq = iaa.Sequential(
@@ -61,6 +67,7 @@ class ImageObject(np.ndarray):
         return ImageObject(image_aug)
 
     def augment_negative(self):
+        logger.debug('augment_negative called on ImageObject')
         bgr = self.copy()
         bbox, mask = bgr.find_mask()
         im_out = np.zeros_like(bgr)
@@ -81,12 +88,15 @@ class ImageObject(np.ndarray):
         )
 
         aug_det = seq.to_deterministic()
-        image_aug = aug_det.augment_images(bgr)
+        image_aug = aug_det.augment_image(bgr)
         im_out[mask == 255] = image_aug[mask == 255]
+        logger.debug(f'returning negative augmented image with shape {im_out.shape}')
         return ImageObject(im_out)
 
     def find_mask(self):
+        logger.debug('Finding mask for ImageObject')
         src = self.copy()
+        logger.debug(f'Image has shape {src.shape}')
         lab1 = cv2.cvtColor(src,cv2.COLOR_BGR2GRAY)
         _, temp_thresh = cv2.threshold(lab1, 1, 255, cv2.THRESH_BINARY)
         h, w = src.shape[:2]
@@ -125,6 +135,11 @@ class ImageObject(np.ndarray):
     def add_occlusion(self, occ_img):
         """ Add occlusion occ_img to the image
         """
+        return self
+        logger.debug('Adding occlusion to ImageObject')
+        logger.debug(f'Occlusion Image shape: {occ_img.shape}')
+        logger.debug(f'Self shape: {self.shape} - gets assigned to sku_img')
+
         sku_img = self.copy()
         if random.randint(0,13)%6!=0:
             return sku_img
@@ -138,7 +153,14 @@ class ImageObject(np.ndarray):
         aug_det = seq.to_deterministic()
         image_aug = ImageObject(aug_det.augment_image(sku_img))
 
+        logger.debug(
+            'add_occlusion called. Shapes: '
+            f'im_out: {im_out.shape} '
+            f'mask_occ: {mask_occ.shape} '
+            f'image_aug: {image_aug.shape} ')
+
         im_out[mask_occ == 255] = image_aug[mask_occ == 255]
+
         occ_img = ImageObject(im_out)
         boundRect, mask = sku_img.find_mask()
         boundRect2, mask2 = occ_img.find_mask()
