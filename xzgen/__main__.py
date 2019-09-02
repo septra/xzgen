@@ -128,11 +128,15 @@ if __name__ == '__main__':
     time0 = time.time()
 
     if RUN_PARALLEL:
+        logger.info(
+            'Running scene generation parallely with '
+            f'{multiprocessing.cpu_count()} workers.')
         with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
             csvData = pool.map(
                 partial(construct_scene, DEBUG_FLAG), 
                 range(num_images))
     else:
+        logger.info('Running scene generation sequentially.')
         for scene_ix in range(num_images):
             logger.info(f'Constructing scene {scene_ix}.')
             scene = Scene(dimension, image_data, scene_ix, 0.8, upper_limit=45)
