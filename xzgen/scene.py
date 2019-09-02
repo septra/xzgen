@@ -34,10 +34,11 @@ class Scene:
         logger.debug(f'Save path for scene: {self.save_path}')
         self.place_prob = place_prob
 
-        self.col_shelf = random.randint(2,8)
-        if self.upper_limit % self.col_shelf == 0:
-            self.col_shelf += 1
-        self.row_shelf = self.upper_limit % self.col_shelf
+        self.col_shelf = 9
+        self.row_shelf = 9
+        while self.col_shelf*self.row_shelf > 45:
+            self.col_shelf = random.randint(2,9)
+            self.row_shelf = random.randint(2,8)
 
         logger.debug(f'self.row_shelf:  {self.row_shelf}')
         logger.debug(f'self.col_shelf:  {self.col_shelf}')
