@@ -80,6 +80,7 @@ class Scene:
             bg_width)
 
         self.build_obj_lists(self.dimension, self.image_data)
+        logger.info(f'Placing {len(self.obj_list)} objects on Scene {scene_idx}')
 
         self.current_col = 0
         self.current_row = 0
