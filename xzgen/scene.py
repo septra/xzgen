@@ -267,22 +267,20 @@ class Scene:
             interpolation=cv2.INTER_CUBIC))
 
         index = single_obj[1]
+
         if occlusion:
             dir_occ = self.image_data.dir_occ
             path_occ = self.image_data.path_occ
             num_occ = random.randint(0, len(dir_occ) - 1)
             occ_img = cv2.imread(
                 str(Path(path_occ).joinpath(dir_occ[num_occ])))
+            if occ_img is None:
+                raise Exception('No occlusion image found.')
             src_ = src_.add_occlusion(occ_img)
-            aug_src_ = src_.augment_obj()
 
-            boundRect_, mask_ = aug_src_.find_mask()
-            return (aug_src_, index), boundRect_, mask_
-        else:
-            boundRect_, mask_ = src_.find_mask()
-            return (src_, index), boundRect_, mask_
-
-
+        aug_src_ = src_.augment_obj()
+        boundRect_, mask_ = aug_src_.find_mask()
+        return (aug_src_, index), boundRect_, mask_
 
     def get_objects_for_row(self, dummy):
         """ Get all objects that can fit into a single row.
@@ -301,6 +299,7 @@ class Scene:
             else:
                 src_rect_masks.append([(src, index), boundRect, mask])
                 x += boundRect[2]
+        logger.debug(f'Total {len(src_rect_masks)} objects constructed for row {dummy}')
         return src_rect_masks
 
     def build_rows(self):
@@ -326,7 +325,12 @@ class Scene:
         current_row = 0
         y1 = int(self.dimension.bg_height * 0.05)
         while True:
-            inter_res = y1 + int(self.shelf_height[current_row])
+            logger.debug(f'Current row = {current_row}')
+            logger.debug(f'len(self.shelf_height) = {len(self.shelf_height)}')
+            try:
+                inter_res = y1 + int(self.shelf_height[current_row])
+            except:
+                break
 
             if inter_res > self.bg1.shape[0]:
                 # SKU crossing height
@@ -340,6 +344,7 @@ class Scene:
             # for row_objects in rows[current_row]:
             x1 = int(self.dimension.bg_width * 0.05) # Current placed sku row length
             # for (aug_img, obj_index), boundRect, mask in row_objects:
+            logger.debug(f'len(row) = {len(rows)}')
             for (aug_img, obj_index), boundRect, mask in rows[current_row]:
                 a1, b1 = (boundRect[0], boundRect[1])
 
@@ -411,7 +416,9 @@ class Scene:
                     y1 : y1 + line_thick,
                     int(self.dimension.bg_width*0.04) : int(self.dimension.bg_width*0.96)] = line_img
 
+            logger.debug(f'len(self.shelf_gaps) = {len(self.shelf_gaps)}')
             y1 += self.shelf_gaps[current_row]
+            current_row += 1
 
         self.final_scene, self.bbs1_aug, self.sku_label = self.augmentation(
                 self.bg1,
