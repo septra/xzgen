@@ -240,11 +240,12 @@ class Scene:
         self.neg_aug_images = [[image, -1] for image in neg_aug_images]
         self.obj_list.extend(self.neg_aug_images)
 
-    def get_resized_single_object(self, occlusion=True):
+    def get_resized_single_object(self, occlusion=False):
         """ Picks a random object from the object list and adds occlusion to
         it.
         """
-        single_obj = self.obj_list[random.randint(0, len(self.obj_list)-1)]
+        random_ix = random.randint(0, len(self.obj_list)-1)
+        single_obj = self.obj_list[random_ix]
         src = single_obj[0]
 
         boundRect, mask = src.find_mask()
@@ -265,6 +266,7 @@ class Scene:
             fy=self.rf*rf2,
             interpolation=cv2.INTER_CUBIC))
 
+        index = single_obj[1]
         if occlusion:
             dir_occ = self.image_data.dir_occ
             path_occ = self.image_data.path_occ
@@ -274,10 +276,13 @@ class Scene:
             src_ = src_.add_occlusion(occ_img)
             aug_src_ = src_.augment_obj()
 
-        boundReact_, mask_ = aug_src_.find_mask()
-        index = single_obj[1]
+            boundRect_, mask_ = aug_src_.find_mask()
+            return (aug_src_, index), boundRect_, mask_
+        else:
+            boundRect_, mask_ = src_.find_mask()
+            return (src_, index), boundRect_, mask_
 
-        return (aug_src_, index), boundReact_, mask_
+
 
     def get_objects_for_row(self, dummy):
         """ Get all objects that can fit into a single row.
