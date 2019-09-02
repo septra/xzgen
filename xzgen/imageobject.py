@@ -43,12 +43,12 @@ class ImageObject(np.ndarray):
 
         seq = iaa.Sequential(
         [
-            sometimes( iaa.SaltAndPepper(0.1) ),
-            sometimes( iaa.EdgeDetect(alpha=0.1)),
-            sometimes( iaa.GammaContrast((1.2, 1.6))),
-            sometimes( iaa.GaussianBlur((0.5,1.25))),
-            sometimes( iaa.AverageBlur(k=9)),
-            sometimes( iaa.MedianBlur(k=7)),
+            # sometimes( iaa.SaltAndPepper(0.1) ),
+            # # sometimes( iaa.EdgeDetect(alpha=0.1)),
+            # # sometimes( iaa.GammaContrast((1.2, 1.6))),
+            # sometimes( iaa.GaussianBlur((0.5,1.25))),
+            # sometimes( iaa.AverageBlur(k=9)),
+            # sometimes( iaa.MedianBlur(k=7)),
             sometimes( iaa.OneOf([
                 iaa.MotionBlur(k=10, angle=45),
                 iaa.MotionBlur(k=10, angle=90),
@@ -61,8 +61,7 @@ class ImageObject(np.ndarray):
             ],
             random_order=True
         )
-        aug_det = seq.to_deterministic()
-        image_aug = aug_det.augment_image(self.copy())
+        image_aug = seq.augment_image(self)
 
         return ImageObject(image_aug)
 
@@ -94,9 +93,8 @@ class ImageObject(np.ndarray):
         return ImageObject(im_out)
 
     def find_mask(self):
-        logger.debug('Finding mask for ImageObject')
         src = self.copy()
-        logger.debug(f'Image has shape {src.shape}')
+        logger.debug(f'Finding mask for ImageObject with shape {src.shape[0], src.shape[1]}')
         lab1 = cv2.cvtColor(src,cv2.COLOR_BGR2GRAY)
         _, temp_thresh = cv2.threshold(lab1, 1, 255, cv2.THRESH_BINARY)
         h, w = src.shape[:2]
@@ -130,6 +128,7 @@ class ImageObject(np.ndarray):
             (255,255,255),
             -1,
             lineType=cv2.LINE_AA)
+
         return boundRect, mask
 
     def add_occlusion(self, occ_img):
