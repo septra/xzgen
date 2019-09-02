@@ -1,11 +1,12 @@
+import time
+import logging
 import argparse
 import multiprocessing
+from pathlib import Path
+from functools import partial
 from xzgen import ImageObject
 from xzgen import ImageData, Dimension
 from xzgen import Scene
-import logging
-from pathlib import Path
-import time
 
 logging.basicConfig(level = logging.INFO)
 logger = logging.getLogger(__name__)
