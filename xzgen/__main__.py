@@ -10,7 +10,7 @@ import time
 logging.basicConfig(level = logging.INFO)
 logger = logging.getLogger(__name__)
 
-def construct_scene(scene_ix):
+def construct_scene(DEBUG_FLAG, scene_ix):
     scene = Scene(dimension, image_data, scene_ix, 0.8, upper_limit=45)
     scene.write_scene(DEBUG_FLAG)
     annots = scene.csvDataTrain.copy()
@@ -92,6 +92,14 @@ if __name__ == '__main__':
             help = "If true, write images with annotated bounding boxes."
             )
 
+    parser.add_argument(
+            "--parallel",
+            dest = 'parallel',
+            default = False,
+            action = 'store_true',
+            help = "If true, run scene creation tasks in parallel."
+            )
+
     args = parser.parse_args()
 
     info_file = args.info
@@ -102,7 +110,7 @@ if __name__ == '__main__':
     path_bg = args.background
     num_images = args.num_images
     DEBUG_FLAG = args.debug
-    # anno_option = args.type
+    RUN_PARALLEL = args.parallel
 
     dimension = Dimension(info_file)
     image_data = ImageData(
@@ -118,20 +126,21 @@ if __name__ == '__main__':
 
     time0 = time.time()
 
-    for scene_ix in range(num_images):
-        logger.info(f'Constructing scene {scene_ix}.')
-        scene = Scene(dimension, image_data, scene_ix, 0.8, upper_limit=45)
-        annots = scene.csvDataTrain.copy()
-        csvData.append(annots)
-        scene.write_scene(DEBUG_FLAG)
-
-    # with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
-    #     csvData = pool.map(construct_scene, range(num_images))
+    if RUN_PARALLEL:
+        with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
+            csvData = pool.map(
+                partial(construct_scene, DEBUG_FLAG), 
+                range(num_images))
+    else:
+        for scene_ix in range(num_images):
+            logger.info(f'Constructing scene {scene_ix}.')
+            scene = Scene(dimension, image_data, scene_ix, 0.8, upper_limit=45)
+            annots = scene.csvDataTrain.copy()
+            csvData.append(annots)
+            scene.write_scene(DEBUG_FLAG)
 
     time1 = time.time()
-
-    print(f'Application took {time1 - time0} secs to run...')
-
+    logger.info(f'Application took {time1 - time0} secs to run.')
 
     csvData = [row for scene in csvData for row in scene]
 
