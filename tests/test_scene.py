@@ -6,7 +6,7 @@ from xzgen import ImageData, ImageObject, Dimension, Scene
 
 TEST_PATH_CONFIG = Path.cwd().joinpath('tests', 'test_data', 'imageconfig')
 SKU_INFO_PATH = TEST_PATH_CONFIG.joinpath('hs_sku_info.csv')
-PATH_POS = TEST_PATH_CONFIG.joinpath('test_pos')
+PATH_POS = TEST_PATH_CONFIG.joinpath('test_POS')
 PATH_NEG = TEST_PATH_CONFIG.joinpath('NEG_SKU')
 PATH_NOSKU = TEST_PATH_CONFIG.joinpath('NEG_BG')
 PATH_OCC = TEST_PATH_CONFIG.joinpath('OCC_DIR')

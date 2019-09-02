@@ -4,7 +4,7 @@ from pathlib import Path
 
 TEST_PATH = Path.cwd().joinpath('tests', 'test_data', 'imageconfig')
 SKU_INFO_PATH = TEST_PATH.joinpath('hs_sku_info.csv')
-PATH_POS = TEST_PATH.joinpath('test_pos')
+PATH_POS = TEST_PATH.joinpath('test_POS')
 PATH_NEG = TEST_PATH.joinpath('NEG_SKU')
 PATH_NOSKU = TEST_PATH.joinpath('NEG_BG')
 PATH_OCC = TEST_PATH.joinpath('OCC_DIR')
