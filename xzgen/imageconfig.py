@@ -92,35 +92,40 @@ class ImageData:
         return paths
 
     @staticmethod
+    def read_and_resize(path):
+        img = cv2.imread(path)
+        if img is None:
+            raise Exception('No image found.')
+        img = cv2.copyMakeBorder(
+            img,
+            top=10,
+            bottom=10,
+            left=10,
+            right=10,
+            borderType= cv2.BORDER_CONSTANT,
+            value=[0,0,0])
+        
+        img = cv2.resize(
+            img,
+            (720, 1280),
+            interpolation=cv2.INTER_CUBIC)
+        return img
+
+    @staticmethod
     def read_negative_image(path):
         logger.debug(f'Reading in negative image: {path}')
-        img = cv2.imread(path)
-
-        if img is None: 
-            raise Exception('No image found.')
-        else:
-            try:
-                img = cv2.resize(img,(720, 1280),interpolation=cv2.INTER_CUBIC)
-            except Exception as e:
-                logger.error(e)
+        img = ImageData.read_and_resize(path)
         return ImageObject(img)
 
     @staticmethod
     def read_positive_image(sku_list, path):
         logger.debug(f'Reading and resizing positive image: {path}')
-        img = cv2.imread(path)
 
-        if img is None:
-            raise Exception('No image found')
-        else:
-            try:
-                img = cv2.resize(img,(720, 1280),interpolation=cv2.INTER_CUBIC)
-                img_sname_list = {}
-                img_sname_list['img'] = ImageObject(img)
-                img_sname_list['class'] = Path(path).parent.name
-                img_sname_list['index'] = sku_list[img_sname_list['class']]
-            except Exception as e:
-                logger.error(e)
+        img = ImageData.read_and_resize(path)
+        img_sname_list = {}
+        img_sname_list['img'] = ImageObject(img)
+        img_sname_list['class'] = Path(path).parent.name
+        img_sname_list['index'] = sku_list[img_sname_list['class']]
 
         return img_sname_list
 
