@@ -272,15 +272,18 @@ class Scene:
         boundRect_, mask_ = src_.find_mask()
 
         if occlusion:
-            dir_occ = self.image_data.dir_occ
-            path_occ = self.image_data.path_occ
-            num_occ = random.randint(0, len(dir_occ) - 1)
-            occ_img = cv2.imread(
-                str(Path(path_occ).joinpath(dir_occ[num_occ])))
-            if occ_img is None:
-                raise Exception('No occlusion image found.')
-            src_ = src_.add_occlusion(occ_img)
-
+            try:
+                dir_occ = self.image_data.dir_occ
+                path_occ = self.image_data.path_occ
+                num_occ = random.randint(0, len(dir_occ) - 1)
+                occ_img = cv2.imread(
+                    str(Path(path_occ).joinpath(dir_occ[num_occ])))
+                if occ_img is None:
+                    raise Exception('No occlusion image found.')
+                src_ = src_.add_occlusion(occ_img)
+            except Exception as e:
+                logger.error(f"Couldn't add occlusion to image: {e}")
+            
         aug_src_ = src_.augment_obj()
         return (aug_src_, index), boundRect_, mask_
 
