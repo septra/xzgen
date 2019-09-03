@@ -139,6 +139,8 @@ class ImageObject(np.ndarray):
         logger.debug(f'Self shape: {self.shape} - gets assigned to sku_img')
 
         sku_img = self.copy()
+        occ_img = ImageObject(occ_img)
+
         if random.randint(0,13)%6!=0:
             return sku_img
 
@@ -149,7 +151,7 @@ class ImageObject(np.ndarray):
             [ iaa.AddToHueAndSaturation((-45, 45), per_channel=True),])
 
         aug_det = seq.to_deterministic()
-        image_aug = ImageObject(aug_det.augment_image(sku_img))
+        image_aug = ImageObject(aug_det.augment_image(occ_img))
 
         logger.debug(
             'add_occlusion called. Shapes: '
@@ -166,8 +168,8 @@ class ImageObject(np.ndarray):
         fy = boundRect[3]*0.3/boundRect2[3] #Choose occlusion size
         occ_img = cv2.resize(occ_img,None,fx=fx,fy=fy,interpolation=cv2.INTER_CUBIC)
         occ_img = ImageObject(occ_img)
-        boundRect3, mask3 = occ_image.find_mask()
-        _, contours, _ = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+        boundRect3, mask3 = occ_img.find_mask()
+        contours, _ = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
 
         tx = ty = -1
         loop_cnt = 0
