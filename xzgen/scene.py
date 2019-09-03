@@ -293,7 +293,8 @@ class Scene:
 
         src_rect_masks = []
         while True:
-            (src, index), boundRect, mask = self.get_resized_single_object()
+            (src, index), boundRect, mask = self.get_resized_single_object(
+                occlusion=True)
             if boundRect is None:
                 continue
             if (x + boundRect[2]) > self.bg1.shape[1]*0.95:

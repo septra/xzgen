@@ -134,7 +134,6 @@ class ImageObject(np.ndarray):
     def add_occlusion(self, occ_img):
         """ Add occlusion occ_img to the image
         """
-        return self
         logger.debug('Adding occlusion to ImageObject')
         logger.debug(f'Occlusion Image shape: {occ_img.shape}')
         logger.debug(f'Self shape: {self.shape} - gets assigned to sku_img')
