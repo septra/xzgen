@@ -244,6 +244,7 @@ class Scene:
         """ Picks a random object from the object list and adds occlusion to
         it.
         """
+        logger.debug('Resizing single image object.')
         random_ix = random.randint(0, len(self.obj_list)-1)
         single_obj = self.obj_list[random_ix]
         src = single_obj[0]
@@ -268,6 +269,8 @@ class Scene:
 
         index = single_obj[1]
 
+        boundRect_, mask_ = src_.find_mask()
+
         if occlusion:
             dir_occ = self.image_data.dir_occ
             path_occ = self.image_data.path_occ
@@ -279,7 +282,6 @@ class Scene:
             src_ = src_.add_occlusion(occ_img)
 
         aug_src_ = src_.augment_obj()
-        boundRect_, mask_ = aug_src_.find_mask()
         return (aug_src_, index), boundRect_, mask_
 
     def get_objects_for_row(self, dummy):
